@@ -7,10 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Chosen Palette: Warm Neutrals with Subtle Accents -->
-    <!-- Application Structure Plan: The SPA is designed as an interactive dashboard. It starts with high-level, aggregate KPI cards for immediate insight. The core of the app is a tab-based navigation system allowing users to switch between the 'Total Performance' view and deep dives into three specific pages. This structure was chosen to facilitate a logical user flow from general overview to specific analysis, preventing information overload. A central, dynamic bar chart visualizes the selected data, paired with a synchronized text summary, making it easy to compare metrics and understand the narrative behind the numbers. This is more user-friendly than a static report as it allows for focused, self-directed data exploration. -->
-    <!-- Visualization & Content Choices: Report Info: Aggregate % changes -> Goal: Inform -> Viz: KPI Stat Cards (HTML/Tailwind) -> Interaction: None, for at-a-glance understanding. Report Info: Per-page metric % changes -> Goal: Compare -> Viz: Bar Chart (Chart.js/Canvas) -> Interaction: Tab buttons update chart data and summary text. Justification: Bar charts excel at comparing magnitudes. Report Info: "Setup overview" absolute growth -> Goal: Inform -> Viz: Bar Chart (Chart.js/Canvas) -> Interaction: Displayed when 'Setup' tab is active. Justification: Using a large number to represent infinite growth from zero provides a visual representation as requested while the summary text provides the exact context. Report Info: Textual findings -> Goal: Explain -> Viz: Dynamic Text Block -> Interaction: Updates with chart. -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -68,7 +64,7 @@
         <section id="kpi-section" class="mb-8 md:mb-12">
              <div class="text-left mb-6">
                 <h2 class="text-2xl font-bold text-[#6d5d4d]">Total Performance Snapshot</h2>
-                <p class="text-gray-600 mt-1">This section provides a high-level summary of the combined performance changes across all three key pages. These key performance indicators (KPIs) highlight the most significant overall trends in user traffic and engagement.</p>
+                <p class="text-gray-600 mt-1">This section provides a high-level summary of the total performance of the three documentation pages I contributed to: Designer UI Basics, Installing Python Libraries, and Setup Overview (new page). These key performance indicators (KPIs) highlight the most significant overall trends in user traffic and engagement.</p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 <div class="kpi-card p-6 rounded-lg shadow-sm text-center">
@@ -133,7 +129,7 @@
         <main class="bg-white p-4 sm:p-6 md:p-8 rounded-xl shadow-md border border-gray-200">
             <div class="text-left mb-6">
                 <h2 class="text-2xl font-bold text-[#6d5d4d]">Detailed Performance Analysis</h2>
-                 <p class="text-gray-600 mt-1">Use the buttons below to explore the detailed performance metrics for all pages combined or for each specific page. The chart and the summary will update to reflect your selection, allowing for a focused analysis of user behavior and page effectiveness.</p>
+                 <p class="text-gray-600 mt-1">Use the buttons below to explore the detailed performance metrics for all pages combined or for each specific page.</p>
             </div>
             
             <nav id="nav-buttons" class="flex flex-wrap justify-center gap-2 md:gap-4 mb-8">
