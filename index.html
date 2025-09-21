@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doc Performance Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals with Subtle Accents -->
+    <!-- Application Structure Plan: The SPA is designed as an interactive dashboard. It starts with high-level, aggregate KPI cards for immediate insight. The core of the app is a tab-based navigation system allowing users to switch between the 'Total Performance' view and deep dives into three specific pages. This structure was chosen to facilitate a logical user flow from general overview to specific analysis, preventing information overload. A central, dynamic bar chart visualizes the selected data, paired with a synchronized text summary, making it easy to compare metrics and understand the narrative behind the numbers. This is more user-friendly than a static report as it allows for focused, self-directed data exploration. -->
+    <!-- Visualization & Content Choices: Report Info: Aggregate % changes -> Goal: Inform -> Viz: KPI Stat Cards (HTML/Tailwind) -> Interaction: None, for at-a-glance understanding. Report Info: Per-page metric % changes -> Goal: Compare -> Viz: Bar Chart (Chart.js/Canvas) -> Interaction: Tab buttons update chart data and summary text. Justification: Bar charts excel at comparing magnitudes. Report Info: "Setup overview" absolute growth -> Goal: Inform -> Viz: Bar Chart (Chart.js/Canvas) -> Interaction: Displayed when 'Setup' tab is active. Justification: Using a large number to represent infinite growth from zero provides a visual representation as requested while the summary text provides the exact context. Report Info: Textual findings -> Goal: Explain -> Viz: Dynamic Text Block -> Interaction: Updates with chart. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f7f4;
+            color: #3f3c3a;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 40vh;
+            max-height: 450px;
+        }
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 50vh;
+            }
+        }
+        .nav-btn {
+            transition: all 0.3s ease;
+        }
+        .nav-btn.active, .event-nav-btn.active {
+            background-color: #a89a8e !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .kpi-card {
+            background-color: #ffffff;
+            border: 1px solid #e7e5e4;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .kpi-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .kpi-value.positive {
+            color: #22c55e;
+        }
+        .kpi-value.negative {
+            color: #ef4444;
+        }
+        .event-tab-content {
+            display: none;
+        }
+        .event-tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <header class="text-center mb-8 md:mb-12">
+            <h1 class="text-3xl md:text-4xl font-bold text-[#6d5d4d]">Doc Performance Report</h1>
+            <p class="text-md md:text-lg text-gray-500 mt-2">docs.matillion.com | Page Analysis | 18 Aug - 17 Sept 2025 vs 19 Jul - 17 Aug 2025</p>
+        </header>
+
+        <section id="kpi-section" class="mb-8 md:mb-12">
+             <div class="text-left mb-6">
+                <h2 class="text-2xl font-bold text-[#6d5d4d] text-center">Total Performance Snapshot</h2>
+                <p class="text-gray-600 mt-1 text-center">This section provides a high-level summary of the total performance of the three documentation pages I contributed to:<strong class=" text-[#6d5d4d]"> Designer UI Basics, Installing Python Libraries, and Setup Overview (new page)</strong>. These key performance indicators (KPIs) highlight the most significant overall trends in user traffic and engagement.</p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                <div class="kpi-card p-6 rounded-lg shadow-sm text-center">
+                    <h3 class="text-gray-500 font-medium text-sm md:text-base">Views</h3>
+                    <p id="kpi-views" class="kpi-value text-3xl font-bold mt-2"></p>
+                </div>
+                <div class="kpi-card p-6 rounded-lg shadow-sm text-center">
+                    <h3 class="text-gray-500 font-medium text-sm md:text-base">Event Count</h3>
+                    <p id="kpi-events" class="kpi-value text-3xl font-bold mt-2"></p>
+                </div>
+                <div class="kpi-card p-6 rounded-lg shadow-sm text-center">
+                    <h3 class="text-gray-500 font-medium text-sm md:text-base">User Engagement</h3>
+                    <p id="kpi-engagement" class="kpi-value text-3xl font-bold mt-2"></p>
+                </div>
+                <div class="kpi-card p-6 rounded-lg shadow-sm text-center">
+                    <h3 class="text-gray-500 font-medium text-sm md:text-base">Avg. Engagement Time</h3>
+                    <p id="kpi-time" class="kpi-value text-3xl font-bold mt-2"></p>
+                </div>
+            </div>
+        </section>
+        <section id="page-breakdown">
+                <div class="overflow-x-auto p-6 md:p-10 bg-white rounded-xl shadow-lg">
+                <table class="w-full text-left table-auto border-collapse">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="py-3 px-4 font-semibold text-slate-600">Metric</th>
+                            <th class="py-3 px-4 font-semibold text-slate-600">Past (18 Jul - 17 Aug)</th>
+                            <th class="py-3 px-4 font-semibold text-slate-600">Present (18 Aug - 17 Sep)</th>
+                            <th class="py-3 px-4 font-semibold text-slate-600">% Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-slate-200">
+                            <td class="py-3 px-4">Views</td>
+                            <td class="py-3 px-4">328</td>
+                            <td class="py-3 px-4">470</td>
+                            <td class="py-3 px-4 text-green-600 font-medium">+43.3%</td>
+                        </tr>
+                        <tr class="border-b border-slate-200">
+                            <td class="py-3 px-4">Event Count</td>
+                            <td class="py-3 px-4">780</td>
+                            <td class="py-3 px-4">1,241</td>
+                            <td class="py-3 px-4 text-green-600 font-medium">+59.1%</td>
+                        </tr>
+                        <tr class="border-b border-slate-200">
+                            <td class="py-3 px-4">User Engagement</td>
+                            <td class="py-3 px-4">17,616</td>
+                            <td class="py-3 px-4">17,866</td>
+                            <td class="py-3 px-4 text-green-600 font-medium">+2.2%</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4">Avg. Engagement Time</td>
+                            <td class="py-3 px-4">57s</td>
+                            <td class="py-3 px-4">46s</td>
+                            <td class="py-3 px-4 text-red-600 font-medium">-19.0%</td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+            </section><br><br>
+
+        <main class="bg-white p-4 sm:p-6 md:p-8 rounded-xl shadow-md border border-gray-200">
+            <div class="text-left mb-6">
+                <h2 class="text-2xl font-bold text-[#6d5d4d] text-center">Detailed Performance Analysis</h2>
+                 <p class="text-gray-600 mt-1 text-center">Use the buttons below to explore the detailed performance metrics for all pages combined or for each specific page.</p>
+            </div>
+            
+            <nav id="nav-buttons" class="flex flex-wrap justify-center gap-2 md:gap-4 mb-8">
+                <button data-page="total" class="nav-btn active text-sm md:text-base font-medium py-2 px-4 rounded-full bg-white text-[#6d5d4d] border border-gray-300 hover:bg-gray-100">Total Performance</button>
+                <button data-page="designer" class="nav-btn text-sm md:text-base font-medium py-2 px-4 rounded-full bg-white text-[#6d5d4d] border border-gray-300 hover:bg-gray-100">Designer UI basics</button>
+                <button data-page="python" class="nav-btn text-sm md:text-base font-medium py-2 px-4 rounded-full bg-white text-[#6d5d4d] border border-gray-300 hover:bg-gray-100">Installing Python</button>
+                <button data-page="setup" class="nav-btn text-sm md:text-base font-medium py-2 px-4 rounded-full bg-white text-[#6d5d4d] border border-gray-300 hover:bg-gray-100">Setup overview</button>
+            </nav>
+
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                <div class="lg:col-span-3">
+                    <div id="chart-wrapper" class="chart-container">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+                <div class="lg:col-span-2 flex items-center">
+                    <div id="summary-section" class="bg-stone-50 p-6 rounded-lg border border-stone-200 w-full">
+                        <h3 id="summary-title" class="text-xl font-bold text-[#6d5d4d] mb-3"></h3>
+                        <p id="summary-text" class="text-gray-600 leading-relaxed"></p>
+                    </div>
+                </div>
+            </div>
+        </main>
+        <br><br>
+        <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg">
+                        <h3 class="text-2xl font-bold text-[#6d5d4d] mb-2">Setup overview (New page)</h3>
+                        <p class="text-slate-600 mb-6">As a newly tracked page, "Setup overview" had a successful launch, moving from zero traffic to significant initial user engagement across all key metrics.</p>
+                        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
+                             <div class="bg-slate-50 p-4 rounded-lg">
+                                <div class="text-3xl font-bold text-[#6d5d4d]">0 &rarr; 61</div>
+                                <div class="text-md font-semibold text-slate-600 mt-1">Views</div>
+                            </div>
+                             <div class="bg-slate-50 p-4 rounded-lg">
+                                <div class="text-3xl font-bold text-[#6d5d4d]">0 &rarr; 169</div>
+                                <div class="text-md font-semibold text-slate-600 mt-1">Event Count</div>
+                            </div>
+                             <div class="bg-slate-50 p-4 rounded-lg">
+                                <div class="text-3xl font-bold text-[#6d5d4d]">0 &rarr; 17m 20s</div>
+                                <div class="text-md font-semibold text-slate-600 mt-1">User Engagement</div>
+                            </div>
+                             <div class="bg-slate-50 p-4 rounded-lg">
+                                <div class="text-3xl font-bold text-[#6d5d4d]">0 &rarr; 21s</div>
+                                <div class="text-md font-semibold text-slate-600 mt-1">Avg. Engagement</div>
+                            </div>
+                        </div>
+                    </div>
+       
+         <section id="event-count-section" class="mt-10 mb-8 p-4 sm:p-6 md:p-8 bg-white rounded-xl shadow-md border border-gray-200">
+            <h2 class="text-2xl font-bold text-[#6d5d4d] mb-6 text-center">Event Count Change by Defined Actions</h2>
+            <p class="text-gray-600 mb-8 text-center max-w-3xl mx-auto"></p>
+            
+            <nav id="event-nav-buttons" class="flex flex-wrap justify-center gap-2 md:gap-4 mb-8">
+                <button data-page="total" class="event-nav-btn active text-sm md:text-base font-medium py-2 px-4 rounded-full bg-white text-[#6d5d4d] border border-gray-300 hover:bg-gray-100">Total Events</button>
+                <button data-page="designer" class="event-nav-btn text-sm md:text-base font-medium py-2 px-4 rounded-full bg-white text-[#6d5d4d] border border-gray-300 hover:bg-gray-100">Designer UI</button>
+                <button data-page="python" class="event-nav-btn text-sm md:text-base font-medium py-2 px-4 rounded-full bg-white text-[#6d5d4d] border border-gray-300 hover:bg-gray-100">Installing Python</button>
+                <button data-page="setup" class="event-nav-btn text-sm md:text-base font-medium py-2 px-4 rounded-full bg-white text-[#6d5d4d] border border-gray-300 hover:bg-gray-100">Setup Overview</button>
+            </nav>
+
+            <div id="event-content-container">
+                <!-- Total Events Tab -->
+                <div id="total-events-tab" class="event-tab-content active">
+                    <div class="overflow-x-auto p-6 md:p-10 bg-gray-50 rounded-xl shadow-inner mb-8">
+                        <table class="w-full text-left table-auto border-collapse">
+                            <thead class="bg-gray-100 border-b border-gray-200">
+                                <tr>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">Event Action</th>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">Past (18 Jul - 17 Aug)</th>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">Present (18 Aug - 17 Sep)</th>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">% Change</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-gray-200 hover:bg-gray-100">
+                                    <td class="py-3 px-4">Page View</td>
+                                    <td class="py-3 px-4">328</td>
+                                    <td class="py-3 px-4">518</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+57.93%</td>
+                                </tr>
+                                <tr class="border-b border-gray-200 hover:bg-gray-100">
+                                    <td class="py-3 px-4">Scroll</td>
+                                    <td class="py-3 px-4">211</td>
+                                    <td class="py-3 px-4">398</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+88.63%</td>
+                                </tr>
+                                <tr class="border-b border-gray-200 hover:bg-gray-100">
+                                    <td class="py-3 px-4">Session Start</td>
+                                    <td class="py-3 px-4">216</td>
+                                    <td class="py-3 px-4">312</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+44.44%</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 px-4">User Engagement</td>
+                                    <td class="py-3 px-4">130</td>
+                                    <td class="py-3 px-4">194</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+49.23%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Designer UI Tab -->
+                <div id="designer-events-tab" class="event-tab-content">
+                    <div class="overflow-x-auto p-6 md:p-10 bg-gray-50 rounded-xl shadow-inner mb-8">
+                        <table class="w-full text-left table-auto border-collapse">
+                            <thead class="bg-gray-100 border-b border-gray-200">
+                                <tr>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">Event Action</th>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">Previous Period</th>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">Current Period</th>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">% Change</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-gray-200 hover:bg-gray-100">
+                                    <td class="py-3 px-4">Page View</td>
+                                    <td class="py-3 px-4">185</td>
+                                    <td class="py-3 px-4">211</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+14.05%</td>
+                                </tr>
+                                <tr class="border-b border-gray-200 hover:bg-gray-100">
+                                    <td class="py-3 px-4">Scroll</td>
+                                    <td class="py-3 px-4">86</td>
+                                    <td class="py-3 px-4">204</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+137.21%</td>
+                                </tr>
+                                <tr class="border-b border-gray-200 hover:bg-gray-100">
+                                    <td class="py-3 px-4">Session Start</td>
+                                    <td class="py-3 px-4">74</td>
+                                    <td class="py-3 px-4">150</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+102.70%</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 px-4">User Engagement</td>
+                                    <td class="py-3 px-4">30</td>
+                                    <td class="py-3 px-4">68</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+126.67%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Installing Python Tab -->
+                <div id="python-events-tab" class="event-tab-content">
+                    <div class="overflow-x-auto p-6 md:p-10 bg-gray-50 rounded-xl shadow-inner mb-8">
+                        <table class="w-full text-left table-auto border-collapse">
+                            <thead class="bg-gray-100 border-b border-gray-200">
+                                <tr>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">Event Action</th>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">Previous Period</th>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">Current Period</th>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">% Change</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-gray-200 hover:bg-gray-100">
+                                    <td class="py-3 px-4">Page View</td>
+                                    <td class="py-3 px-4">143</td>
+                                    <td class="py-3 px-4">198</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+38.46%</td>
+                                </tr>
+                                <tr class="border-b border-gray-200 hover:bg-gray-100">
+                                    <td class="py-3 px-4">Scroll</td>
+                                    <td class="py-3 px-4">50</td>
+                                    <td class="py-3 px-4">118</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+136.00%</td>
+                                </tr>
+                                <tr class="border-b border-gray-200 hover:bg-gray-100">
+                                    <td class="py-3 px-4">Session Start</td>
+                                    <td class="py-3 px-4">85</td>
+                                    <td class="py-3 px-4">104</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+22.35%</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 px-4">User Engagement</td>
+                                    <td class="py-3 px-4">58</td>
+                                    <td class="py-3 px-4">96</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+65.52%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Setup Overview Tab -->
+                <div id="setup-events-tab" class="event-tab-content">
+                    <div class="overflow-x-auto p-6 md:p-10 bg-gray-50 rounded-xl shadow-inner mb-8">
+                        <table class="w-full text-left table-auto border-collapse">
+                            <thead class="bg-gray-100 border-b border-gray-200">
+                                <tr>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">Event Action</th>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">Previous Period</th>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">Current Period</th>
+                                    <th class="py-3 px-4 font-semibold text-slate-600">Change</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-gray-200 hover:bg-gray-100">
+                                    <td class="py-3 px-4">Page View</td>
+                                    <td class="py-3 px-4">0</td>
+                                    <td class="py-3 px-4">109</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+109</td>
+                                </tr>
+                                <tr class="border-b border-gray-200 hover:bg-gray-100">
+                                    <td class="py-3 px-4">Scroll</td>
+                                    <td class="py-3 px-4">0</td>
+                                    <td class="py-3 px-4">76</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+76</td>
+                                </tr>
+                                <tr class="border-b border-gray-200 hover:bg-gray-100">
+                                    <td class="py-3 px-4">Session Start</td>
+                                    <td class="py-3 px-4">0</td>
+                                    <td class="py-3 px-4">58</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+58</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 px-4">User Engagement</td>
+                                    <td class="py-3 px-4">0</td>
+                                    <td class="py-3 px-4">30</td>
+                                    <td class="py-3 px-4 text-green-600 font-medium">+30</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="eventChart"></canvas>
+                </div>
+            </div>
+        </section>
+        <section id="summary" class="mt-16">
+                 <h2 class="text-3xl font-bold text-center mb-8 text-[#6d5d4d]">Summary of Findings</h2>
+                 <div class="bg-white p-8 rounded-xl shadow-lg max-w-3xl mx-auto">
+                    <ul class="space-y-4">
+                        <li class="flex items-start">
+                            <span class="text-green-500 text-2xl mr-4">&#10004;</span>
+                            <p class="text-slate-600 mt-1"><strong class="font-bold text-lg text-[#6d5d4d]">Overall Positive Trend:</strong> The site shows strong growth with a <strong class=" text-[#6d5d4d]">59.1% increase in total event count</strong>. This is driven by significant increases in user interaction across all key pages, indicating high content engagement.</p>
+                        </li>
+                        <li class="flex items-start">
+                             <span class="text-green-500 text-2xl mr-4">&#10004;</span>
+                            <p class="text-slate-600 mt-1"><strong class="font-bold text-lg text-[#6d5d4d]">Top Performer - Designer UI basics:</strong> This page saw a remarkable <strong class=" text-[#6d5d4d]">150% increase in total event count</strong>, highlighted by a <strong class=" text-[#6d5d4d]">137.21% jump in 'Scroll' events</strong> and a <strong class=" text-[#6d5d4d]">102.7% increase in 'Session Start'</strong>. This suggests users are actively exploring the content and finding it highly relevant.</p>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-green-500 text-2xl mr-4">&#10004;</span>
+                            <p class="text-slate-600 mt-1"><strong class="font-bold text-lg text-[#6d5d4d]">Strong Performance - Installing Python libraries:</strong> This page continues to perform well, with event counts increasing by <strong class=" text-[#6d5d4d]">54.28%</strong>. The large increase in <strong class=" text-[#6d5d4d]">'Scroll' events (+136.00%)</strong> indicates that the content is effectively holding user attention.</p>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="text-green-500 text-2xl mr-4">&#10004;</span>
+                            <p class="text-slate-600 mt-1"><strong class="font-bold text-lg text-[#6d5d4d]">Successful Launch - Setup overview:</strong> As a new page, it shows significant growth across all event actions from its previous baseline of zero. This indicates a very successful content launch with immediate and positive user engagement.</p>
+                        </li>
+                    </ul>
+                 </div>
+            </section>
+     </div>
+    
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const performanceData = {
+                total: {
+                    title: "Total Performance (All Pages)",
+                    metrics: [43.3, 28.4, 59.1, 2.2, -19.0, 43.8],
+                    labels: ["Views", "Views per Active User", "Event Count", "User Engagement", "Avg. Engagement Time", "Exits"],
+                    summary: "Across all pages, the trend is positive, with significant growth in key metrics like Views and Event Count. However, a decrease in Average Engagement Time suggests users might be finding information more quickly."
+                },
+                designer: {
+                    title: "Designer UI basics - Matillion Docs",
+                    metrics: [53.33, 155.17, 126.33, 15.85, 40],
+                    labels: ["Views", "Event Count", "User Engagement", "Avg. Engagement Time", "Exits"],
+                    summary: "This page showed remarkable growth. The massive increases in Event Count (+155.17%) and User Engagement (+126.33%) indicate a significant rise in user interest and positive interactions."
+                },
+                python: {
+                    title: "Installing Python libraries - Matillion Docs",
+                    metrics: [32.88, 49.35, 26.6, 13.31, 23.68],
+                    labels: ["Views", "Event Count", "User Engagement", "Avg. Engagement Time", "Exits"],
+                    summary: "This page also performed very well, continuing positive trends. Solid growth across all metrics demonstrates its consistent value and effectiveness in engaging users."
+                },
+                setup: {
+                    title: "Setup overview - Matillion Docs",
+                    metrics: [61, 169, 1032, 21, 15],
+                    labels: ["Views", "Event Count", "User Engagement", "Avg. Engagement Time", "Exits"],
+                    summary: "This page showed a strong increase across the board, moving from a baseline of zero users to significant engagement. This indicates a successful launch and strong initial user interest in the content."
+                }
+            };
+            
+            // Current period's event counts
+            const eventCurrentData = {
+                "total": {
+                    "labels": ["Page View", "Scroll", "Session Start", "User Engagement"],
+                    "counts": [518, 398, 312, 194]
+                },
+                "designer": {
+                    "labels": ["Page View", "Scroll", "Session Start", "User Engagement"],
+                    "counts": [211, 204, 150, 68]
+                },
+                "python": {
+                    "labels": ["Page View", "Scroll", "Session Start", "User Engagement"],
+                    "counts": [198, 118, 104, 96]
+                },
+                "setup": {
+                    "labels": ["Page View", "Scroll", "Session Start", "User Engagement"],
+                    "counts": [109, 76, 58, 30]
+                }
+            };
+
+            // Previous period's event counts
+            const eventPreviousData = {
+                "total": {
+                    "counts": [328, 211, 216, 130]
+                },
+                "designer": {
+                    "counts": [185, 86, 74, 30]
+                },
+                "python": {
+                    "counts": [143, 50, 85, 58]
+                },
+                "setup": {
+                    "counts": [0, 0, 0, 0]
+                }
+            };
+
+            // Calculate percentage change for each event
+            const eventChangeData = {};
+            for (const page in eventCurrentData) {
+                eventChangeData[page] = {
+                    labels: eventCurrentData[page].labels,
+                    changes: eventCurrentData[page].counts.map((current, index) => {
+                        const previous = eventPreviousData[page].counts[index];
+                        if (previous === 0) {
+                            return current;
+                        }
+                        return ((current - previous) / previous) * 100;
+                    })
+                };
+            }
+
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            const performanceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '% Change',
+                        data: [],
+                        backgroundColor: (context) => (context.dataset.data[context.dataIndex] >= 0 ? 'rgba(34, 197, 94, 0.6)' : 'rgba(239, 68, 68, 0.6)'),
+                        borderColor: (context) => (context.dataset.data[context.dataIndex] >= 0 ? 'rgba(34, 197, 94, 1)' : 'rgba(239, 68, 68, 1)'),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: { x: { beginAtZero: true, title: { display: true, text: '% Change' } }, y: { ticks: { autoSkip: false } } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label || ''}: ${context.parsed.x.toFixed(2)}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Event Chart setup
+            const eventCtx = document.getElementById('eventChart').getContext('2d');
+            let eventChart = null;
+
+            function createEventChart(pageKey) {
+                 if (eventChart) {
+                    eventChart.destroy();
+                }
+
+                const data = eventChangeData[pageKey];
+                const chartData = data.changes.map(change => change === Number.POSITIVE_INFINITY ? 1000 : change);
+
+                eventChart = new Chart(eventCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: '% Change in Event Counts',
+                            data: chartData,
+                            backgroundColor: (context) => {
+                                const value = context.dataset.data[context.dataIndex];
+                                if (value === 1000) return '#6d5d4d';
+                                return value >= 0 ? '#6d5d4d' : '#ef4444';
+                            },
+                            borderRadius: 8,
+                            categoryPercentage: 0.6,
+                            barPercentage: 0.8
+                        }]
+                    },
+                    options: {
+                         responsive: true,
+                         maintainAspectRatio: false,
+                         animation: {
+                            duration: 1500, // Duration of the animation
+                            easing: 'easeInOutQuad' // Easing function for a smooth transition
+                         },
+                         scales: {
+                             x: {
+                                 beginAtZero: true,
+                                 grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                             },
+                             y: {
+                                 beginAtZero: true,
+                                 grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                                 ticks: {
+                                     callback: function(value) {
+                                         if (value === 1000) return 'Infinite';
+                                         return value + '%';
+                                     }
+                                 }
+                             }
+                         },
+                         plugins: {
+                             legend: { display: false },
+                             tooltip: {
+                                 callbacks: {
+                                     label: function(context) {
+                                         const value = context.raw;
+                                         if (value === 1000) {
+                                             return 'Change from 0: Infinite Growth';
+                                         }
+                                         return `Change: ${value.toFixed(2)}%`;
+                                     }
+                                 }
+                             }
+                         }
+                    }
+                });
+            }
+
+            function updateDashboard(pageKey) {
+                const data = performanceData[pageKey];
+                
+                performanceChart.data.labels = data.labels;
+                performanceChart.data.datasets[0].data = data.metrics;
+                performanceChart.update();
+
+                document.getElementById('summary-title').textContent = data.title;
+                document.getElementById('summary-text').textContent = data.summary;
+                
+                document.querySelectorAll('#nav-buttons .nav-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.page === pageKey);
+                });
+            }
+
+            function updateEventSection(pageKey) {
+                document.querySelectorAll('.event-tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(`${pageKey}-events-tab`).classList.add('active');
+                
+                createEventChart(pageKey);
+
+                document.querySelectorAll('#event-nav-buttons .event-nav-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.page === pageKey);
+                });
+            }
+            
+            function setKpiValue(elementId, value) {
+                const element = document.getElementById(elementId);
+                element.textContent = `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+                element.className = 'kpi-value text-3xl font-bold mt-2';
+                element.classList.add(value >= 0 ? 'positive' : 'negative');
+            }
+
+            function initializeKpis() {
+                const totalData = performanceData.total.metrics;
+                setKpiValue('kpi-views', totalData[0]);
+                setKpiValue('kpi-events', totalData[2]);
+                setKpiValue('kpi-engagement', totalData[3]);
+                setKpiValue('kpi-time', totalData[4]);
+            }
+
+            document.getElementById('nav-buttons').addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    updateDashboard(e.target.dataset.page);
+                }
+            });
+
+            document.getElementById('event-nav-buttons').addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    updateEventSection(e.target.dataset.page);
+                }
+            });
+
+            initializeKpis();
+            updateDashboard('total');
+            updateEventSection('total');
+        });
+    </script>
+</body>
+</html>
