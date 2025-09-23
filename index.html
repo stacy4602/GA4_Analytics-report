@@ -7,10 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Chosen Palette: Warm Neutrals with Subtle Accents -->
-    <!-- Application Structure Plan: The SPA is designed as an interactive dashboard. It starts with high-level, aggregate KPI cards for immediate insight. The core of the app is a tab-based navigation system allowing users to switch between the 'Total Performance' view and deep dives into three specific pages. This structure was chosen to facilitate a logical user flow from general overview to specific analysis, preventing information overload. A central, dynamic bar chart visualizes the selected data, paired with a synchronized text summary, making it easy to compare metrics and understand the narrative behind the numbers. This is more user-friendly than a static report as it allows for focused, self-directed data exploration. -->
-    <!-- Visualization & Content Choices: Report Info: Aggregate % changes -> Goal: Inform -> Viz: KPI Stat Cards (HTML/Tailwind) -> Interaction: None, for at-a-glance understanding. Report Info: Per-page metric % changes -> Goal: Compare -> Viz: Bar Chart (Chart.js/Canvas) -> Interaction: Tab buttons update chart data and summary text. Justification: Bar charts excel at comparing magnitudes. Report Info: "Setup overview" absolute growth -> Goal: Inform -> Viz: Bar Chart (Chart.js/Canvas) -> Interaction: Displayed when 'Setup' tab is active. Justification: Using a large number to represent infinite growth from zero provides a visual representation as requested while the summary text provides the exact context. Report Info: Textual findings -> Goal: Explain -> Viz: Dynamic Text Block -> Interaction: Updates with chart. -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body {
             font-family: 'Inter', sans-serif;
